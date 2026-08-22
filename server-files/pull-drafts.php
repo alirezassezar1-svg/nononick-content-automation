@@ -74,6 +74,40 @@ function githubRequest(string $url, string $method = 'GET', ?array $body = null)
     return ['code' => $httpCode, 'body' => json_decode($response, true)];
 }
 
+/**
+ * یه عکس با هوش مصنوعی از Pollinations.ai می‌سازه و دانلودش می‌کنه.
+ * رایگان، بدون نیاز به API key.
+ */
+function generateAndDownloadImage(string $prompt, string $slug): ?string
+{
+    $encodedPrompt = rawurlencode($prompt);
+    $seed = crc32($slug); // برای نتیجه‌ی ثابت و قابل تکرار برای هر مقاله
+    $imageUrl = "https://image.pollinations.ai/prompt/{$encodedPrompt}?width=1200&height=630&seed={$seed}&nologo=true";
+
+    $ch = curl_init($imageUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+    curl_setopt($ch, CURLOPT_USERAGENT, 'nononick-content-automation');
+    $imageData = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($imageData === false || $httpCode !== 200 || strlen($imageData) < 1000) {
+        return null; // شکست خورد؛ مقاله بدون عکس ذخیره می‌شه
+    }
+
+    $uploadsDir = __DIR__ . '/../../uploads/articles'; // مسیر رو با ساختار واقعی سایتت تطبیق بده
+    if (!is_dir($uploadsDir)) {
+        mkdir($uploadsDir, 0755, true);
+    }
+
+    $filename = $slug . '-' . time() . '.jpg';
+    $fullPath = $uploadsDir . '/' . $filename;
+    file_put_contents($fullPath, $imageData);
+
+    return '/uploads/articles/' . $filename; // مسیر نسبی که تو دیتابیس ذخیره می‌شه
+}
+
 function slugify(string $text): string
 {
     // اسلاگ ساده لاتین؛ اگه عنوان فارسیه و می‌خوای اسلاگ یونیکد بمونه،
@@ -182,6 +216,19 @@ foreach ($files as $file) {
     $excerpt = $article['excerpt'] ?? null;
     $metaDescription = $article['meta_description'] ?? null;
 
+    // --- عکس شاخص ---
+    $featuredImage = null;
+    if (!empty($article['image_prompt'])) {
+        logMsg("در حال ساخت عکس برای: $title");
+        $featuredImage = generateAndDownloadImage($article['image_prompt'], $slug);
+        if ($featuredImage === null) {
+            logMsg("ساخت عکس ناموفق بود، مقاله بدون عکس ذخیره می‌شه.");
+        }
+    } elseif (!empty($article['featured_image'])) {
+        // اگه مستقیم یه URL عکس تو JSON بود، همون استفاده می‌شه
+        $featuredImage = $article['featured_image'];
+    }
+
     // اگه اسلاگ تکراریه، یه پسوند بهش اضافه کن
     $slugCheckStmt = $pdo->prepare('SELECT COUNT(*) FROM articles WHERE slug = ?');
     $originalSlug = $slug;
@@ -198,10 +245,10 @@ foreach ($files as $file) {
     // درج تو دیتابیس به‌صورت پیش‌نویس
     try {
         $insertStmt = $pdo->prepare(
-            'INSERT INTO articles (title, slug, content, excerpt, meta_description, status, source, github_source_file)
-             VALUES (?, ?, ?, ?, ?, "draft", "ai", ?)'
+            'INSERT INTO articles (title, slug, content, excerpt, meta_description, featured_image, status, source, github_source_file)
+             VALUES (?, ?, ?, ?, ?, ?, "draft", "ai", ?)'
         );
-        $insertStmt->execute([$title, $slug, $content, $excerpt, $metaDescription, $filePath]);
+        $insertStmt->execute([$title, $slug, $content, $excerpt, $metaDescription, $featuredImage, $filePath]);
         logMsg("مقاله با موفقیت به‌عنوان پیش‌نویس ثبت شد: $title (slug: $slug)");
         $importedCount++;
     } catch (PDOException $e) {
