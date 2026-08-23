@@ -78,21 +78,47 @@ function githubRequest(string $url, string $method = 'GET', ?array $body = null)
  * یه عکس با هوش مصنوعی از Pollinations.ai می‌سازه و دانلودش می‌کنه.
  * رایگان، بدون نیاز به API key.
  */
+/**
+ * یه عکس با مدل FLUX.1-schnell از طریق Hugging Face Inference API می‌سازه.
+ * رایگان، فقط نیاز به یه توکن Hugging Face (hf_...) داره.
+ */
 function generateAndDownloadImage(string $prompt, string $slug): ?string
 {
-    $encodedPrompt = rawurlencode($prompt);
-    $seed = crc32($slug); // برای نتیجه‌ی ثابت و قابل تکرار برای هر مقاله
-    $imageUrl = "https://image.pollinations.ai/prompt/{$encodedPrompt}?width=1200&height=630&seed={$seed}&nologo=true";
+    $apiUrl = 'https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell';
 
-    $ch = curl_init($imageUrl);
+    $ch = curl_init($apiUrl);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Bearer ' . HUGGINGFACE_TOKEN,
+        'Content-Type: application/json',
+    ]);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['inputs' => $prompt]));
     curl_setopt($ch, CURLOPT_TIMEOUT, 60);
-    curl_setopt($ch, CURLOPT_USERAGENT, 'nononick-content-automation');
     $imageData = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
     curl_close($ch);
 
-    if ($imageData === false || $httpCode !== 200 || strlen($imageData) < 1000) {
+    // مدل ممکنه بار اول "در حال بارگذاری" برگردونه (کد 503)؛ یه بار دیگه امتحان می‌کنیم
+    if ($httpCode === 503) {
+        sleep(15);
+        $ch = curl_init($apiUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . HUGGINGFACE_TOKEN,
+            'Content-Type: application/json',
+        ]);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['inputs' => $prompt]));
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+        $imageData = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        curl_close($ch);
+    }
+
+    if ($imageData === false || $httpCode !== 200 || strpos((string) $contentType, 'image/') !== 0) {
         return null; // شکست خورد؛ مقاله بدون عکس ذخیره می‌شه
     }
 
