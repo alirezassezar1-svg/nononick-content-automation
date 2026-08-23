@@ -22,5 +22,9 @@ define('GITHUB_OWNER', 'alirezassezar1-svg');
 define('GITHUB_REPO', 'nononick-content-automation');
 define('GITHUB_DRAFTS_PATH', 'drafts');
 
+// --- Hugging Face (ساخت عکس با FLUX.1-schnell) ---
+// از huggingface.co/settings/tokens یه توکن Read بساز
+define('HUGGINGFACE_TOKEN', 'hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx');
+
 // --- امنیت endpoint (اختیاری، اگه بخوای دستی هم صداش بزنی) ---
 define('PULL_SECRET_TOKEN', 'یک-رشته-تصادفی-طولانی-اینجا-بساز');
