@@ -57,6 +57,23 @@ https://nononick.ir/admin/automation/pull-drafts.php?token=PULL_SECRET_TOKEN_خ�
 }
 ```
 
+## بکاپ خودکار روی گوگل درایو
+
+هر بار که فایل جدیدی تو `drafts/` push بشه، ورک‌فلوی
+`.github/workflows/drive-backup.yml` خودکار اجرا میشه و یه نسخه از اون
+فایل(ها) رو با یه سرویس‌اکانت گوگل، تو یه فولدر مشخص از گوگل درایو
+آپلود می‌کنه (به‌عنوان آرشیو/بکاپ، مستقل از دیتابیس سایت).
+
+راه‌اندازی یک‌بار:
+1. یه فولدر تو گوگل درایو بساز و با ایمیل سرویس‌اکانت
+   (`nononick-drive-bot@creat-506915.iam.gserviceaccount.com`) به نقش
+   Editor به اشتراک بذار.
+2. شناسه اون فولدر (بخشی از URL بعد از `/folders/`) رو به‌عنوان سکرت
+   `GDRIVE_FOLDER_ID` تو Settings → Secrets and variables → Actions اضافه کن.
+3. سکرت `GOOGLE_SERVICE_ACCOUNT_JSON` از قبل ست شده.
+
+جزئیات اسکریپت تو `scripts/backup_to_drive.py`.
+
 ## امنیت
 - `config.php` هیچ‌وقت commit نمی‌شه (تو `.gitignore` هست)
 - توکن‌های گیت‌هاب رو هر چند وقت یک‌بار عوض کن (Regenerate)
