@@ -1,0 +1,55 @@
+name: Nononick Hourly Content Email
+
+on:
+  # Tehran is UTC+3:30 in September 2026.
+  # 08:00 through 02:00 Tehran = 04:30 through 22:30 UTC.
+  schedule:
+    - cron: '30 4-22 * * *'
+  workflow_dispatch:
+    inputs:
+      force_send:
+        description: 'Generate and send immediately'
+        required: false
+        default: 'true'
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  generate-and-email:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install --disable-pip-version-check openai
+
+      - name: Generate content package
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CONTENT_INDEX: ${{ vars.CONTENT_INDEX || '1' }}
+        run: python scripts/generate_hourly_content.py
+
+      - name: Email package through Outlook SMTP
+        env:
+          SMTP_HOST: ${{ secrets.OUTLOOK_SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.OUTLOOK_SMTP_PORT }}
+          SMTP_USER: ${{ secrets.OUTLOOK_SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.OUTLOOK_SMTP_PASSWORD }}
+          CONTENT_EMAIL_TO: ${{ secrets.CONTENT_EMAIL_TO }}
+        run: python scripts/send_content_email.py
+
+      - name: Commit generated package
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add drafts/ sent-content/ || true
+          git diff --cached --quiet || git commit -m 'Generate hourly Nononick content package'
+          git push || true
