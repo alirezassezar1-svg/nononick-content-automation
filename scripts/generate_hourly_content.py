@@ -4,7 +4,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from openai import OpenAI
 
-idx = int(os.getenv('CONTENT_INDEX', '1'))
+index_file = Path('.content-index')
+idx = int(index_file.read_text().strip()) if index_file.exists() else 1
 themes = [
     'Futuristic', 'Luxury', 'Modern Minimal', 'Glassmorphism', '3D Interactive',
     'Cyberpunk', 'Neo-Brutalism', 'Aurora Gradient', 'Dark Premium', 'Editorial',
@@ -27,7 +28,7 @@ All prose except website_prompt and AI prompts should be Persian.'''
 
 client = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
 res = client.chat.completions.create(
-    model='gpt-5.6',
+    model=os.environ.get('OPENAI_MODEL', 'gpt-5.6'),
     messages=[{'role': 'user', 'content': prompt}],
     temperature=0.8,
     response_format={'type': 'json_object'}
@@ -48,5 +49,4 @@ Path('drafts/latest.json').write_text(json.dumps({
     'meta_description': content['article'].get('meta_description', '')
 }, ensure_ascii=False, indent=2), encoding='utf-8')
 
-# Advance to the next theme for the next run.
-Path('.content-index').write_text(str(idx + 1), encoding='utf-8')
+index_file.write_text(str(idx + 1), encoding='utf-8')
